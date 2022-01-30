@@ -6,6 +6,15 @@
 #include <time.h>
 #include <ATimer.h>
 
+#define DBG_LEVEL	0
+
+#if DBG_LEVEL==1
+	#define AT_DBG(...) printf(__VA_ARGS__)
+#else
+	#define AT_DBG(...) 
+#endif
+
+
 typedef struct ATimer_t {
 	char name[21];
 	void (*cb)(struct ATimer_t *, void *);
@@ -27,7 +36,7 @@ volatile int bye = 0;
 
 static void *ATimer_tick_thread(void *arg)
 {
-	printf("ATimer_tick_thread: start\n");
+	AT_DBG("ATimer_tick_thread: start\n");
 	// struct timespec tnow;
 	while (bye < 1) {
 		if (ATQ) {
@@ -46,7 +55,7 @@ static void *ATimer_tick_thread(void *arg)
 	pthread_mutex_lock(&wCondMutex);
 	pthread_cond_signal(&wCond);
 	pthread_mutex_unlock(&wCondMutex);
-	printf("ATimer_tick_thread: end\n");
+	AT_DBG("ATimer_tick_thread: end\n");
 }
 
 static void ATimer_enqueue(ATimer_t *new)
@@ -60,16 +69,16 @@ static void ATimer_enqueue(ATimer_t *new)
 	}
 	if (new->next == ATQ) {
 		ATQ = new;
-		printf("\t > Inserted @ head\n");
+		AT_DBG("\t > Inserted @ head\n");
 		return;
 	}
 	p->next = new;
-	printf("\t > Inserted after %s\n", p->name);
+	AT_DBG("\t > Inserted after %s\n", p->name);
 }
 
 static void *ATimer_worker_thread(void *arg)
 {
-	printf("ATimer_worker_thread: start\n");
+	AT_DBG("ATimer_worker_thread: start\n");
 	while (bye < 2) {
 		pthread_mutex_lock(&wCondMutex);
 		pthread_cond_wait(&wCond, &wCondMutex);
@@ -81,7 +90,7 @@ static void *ATimer_worker_thread(void *arg)
 			// This should be protected by mutex
 			ATQ = ATQ->next;
 
-			printf("Processing %s\n", d->name);
+			AT_DBG("Processing %s\n", d->name);
 			d->cb(d, NULL);
 			if (d->type == AT_ONESHOT) {
 				free(d);
@@ -92,7 +101,7 @@ static void *ATimer_worker_thread(void *arg)
 		}
 	}
 	bye = 3;
-	printf("ATimer_worker_thread: end\n");
+	AT_DBG("ATimer_worker_thread: end\n");
 }
 
 void ATimer_init()
@@ -100,23 +109,23 @@ void ATimer_init()
 	ATQ = done = NULL;
 	pthread_create(&t1, NULL, ATimer_tick_thread, NULL);
 	pthread_create(&t2, NULL, ATimer_worker_thread, NULL);
-	printf("ATimer_init: ATimer initialized\n");
+	AT_DBG("ATimer_init: ATimer initialized\n");
 }
 
 void ATimer_deinit()
 {
-	printf("ATimer_deinit: Shutting down ATimer threads\n");
+	AT_DBG("ATimer_deinit: Shutting down ATimer threads\n");
 	bye = 1;
 	while (bye < 3) {
 		usleep(1000);
 	}
-	printf("ATimer_deinit: Cleaning up ATimer Queue\n");
+	AT_DBG("ATimer_deinit: Cleaning up ATimer Queue\n");
 	while (ATQ) {
 		ATimer_t *h = ATQ;
 		ATQ = ATQ->next;
 		free(h);
 	}
-	printf("ATimer_deinit: ATimer Deinitialized\n");
+	AT_DBG("ATimer_deinit: ATimer Deinitialized\n");
 }
 
 void ATimer_start(
@@ -136,7 +145,7 @@ void ATimer_start(
 	new->timeout = tnow;
 	new->timeout.tv_sec += period;
 	new->type = type;
-	printf("ATimer_start: %s\n", new->name);
+	AT_DBG("ATimer_start: %s\n", new->name);
 
 	ATimer_enqueue(new);	
 	// printQ();
@@ -146,10 +155,10 @@ void printQ(void)
 {
 	ATimer_t *h = ATQ;
 	while (h) {
-		printf("%s->", h->name);
+		AT_DBG("%s->", h->name);
 		h = h->next;
 	}
-	printf("NULL\n");
+	AT_DBG("NULL\n");
 }
 
 char *ATimer_getname(ATimer_t *ptr)

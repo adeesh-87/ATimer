@@ -3,7 +3,6 @@
 #include <ATimer.h>
 
 volatile int a = 0;
-
 void callback1(ATimer_t *ptimer, void *x)
 {
 	a++;
